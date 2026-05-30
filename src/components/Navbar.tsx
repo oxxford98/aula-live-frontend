@@ -48,13 +48,13 @@ export function Navbar({ isLanding, isAuthenticated, onLogout }: NavbarProps) {
                 <Link to="/profile">Ver Perfil</Link>
               </Button>
               <Button type="button" size="sm" onClick={() => void onLogout()}>
-                Logout
+                Cerrar sesión
               </Button>
             </>
           ) : (
             <>
               <Button asChild type="button" variant="outline" size="sm">
-                <Link to="/login">Login</Link>
+                <Link to="/login">Iniciar sesión</Link>
               </Button>
               <Button asChild type="button" size="sm">
                 <Link to="/register">Registro</Link>
