@@ -42,7 +42,7 @@ export function AuthLoginView({ onGoRegister, onLoginSuccess }: AuthLoginViewPro
     }
 
     if (!password) {
-      errors.password = "El password es obligatorio"
+      errors.password = "La contraseña es obligatoria"
     }
 
     if (Object.keys(errors).length > 0) {
@@ -101,14 +101,14 @@ export function AuthLoginView({ onGoRegister, onLoginSuccess }: AuthLoginViewPro
       <Card className="border-border/60 bg-card/80 shadow-xl shadow-black/25 backdrop-blur">
         <CardHeader className="space-y-2">
           <CardTitle id="login-title" className="text-2xl">
-            Iniciar sesion
+            Iniciar sesión
           </CardTitle>
-          <CardDescription>Ingresa con tu email y password para entrar a tu aula.</CardDescription>
+          <CardDescription>Ingresa con tu email y contraseña para entrar a tu aula.</CardDescription>
         </CardHeader>
         <CardContent>
           {requiresAuthNotice ? (
             <p className="mb-4 rounded-lg border border-amber-300/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
-              Debes iniciar sesion para ingresar a esta ruta.
+              Debes iniciar sesión para ingresar a esta ruta.
             </p>
           ) : null}
 
@@ -131,7 +131,7 @@ export function AuthLoginView({ onGoRegister, onLoginSuccess }: AuthLoginViewPro
 
             <div className="space-y-2">
               <label htmlFor="login-password" className="text-sm font-medium">
-                Password
+                Contraseña
               </label>
               <Input
                 id="login-password"

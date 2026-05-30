@@ -75,7 +75,7 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
     }
 
     if (!params.username) {
-      errors.username = "El username es obligatorio"
+      errors.username = "El nombre de usuario es obligatorio"
     }
 
     if (!params.avatarUrl) {
@@ -89,9 +89,9 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
     }
 
     if (!params.password) {
-      errors.password = "La contrasena es obligatoria"
+      errors.password = "La contraseña es obligatoria"
     } else if (params.password.length < 6) {
-      errors.password = "La contrasena debe tener al menos 6 caracteres"
+      errors.password = "La contraseña debe tener al menos 6 caracteres"
     }
 
     return errors
@@ -392,7 +392,7 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
 
                 <div className="space-y-2">
                   <label htmlFor="register-username" className="text-sm font-medium">
-                    Username
+                    Nombre de usuario
                   </label>
                   <Input
                     id="register-username"
@@ -411,9 +411,9 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
                     }}
                     aria-invalid={Boolean(fieldErrors.username || usernameState === "taken")}
                   />
-                  {usernameState === "checking" ? <p className="text-xs text-muted-foreground">Validando username...</p> : null}
-                  {usernameState === "available" ? <p className="text-xs text-emerald-500">Username disponible</p> : null}
-                  {usernameState === "taken" ? <p className="text-xs text-destructive">Username ya ocupado</p> : null}
+                  {usernameState === "checking" ? <p className="text-xs text-muted-foreground">Validando nombre de usuario...</p> : null}
+                  {usernameState === "available" ? <p className="text-xs text-emerald-500">Nombre de usuario disponible</p> : null}
+                  {usernameState === "taken" ? <p className="text-xs text-destructive">Nombre de usuario ya ocupado</p> : null}
                   {fieldErrors.username ? <p className="text-xs text-destructive">{fieldErrors.username}</p> : null}
                 </div>
 
@@ -474,14 +474,14 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
 
                 <div className="space-y-2">
                   <label htmlFor="register-password" className="text-sm font-medium">
-                    Password
+                    Contraseña
                   </label>
                   <Input
                     id="register-password"
                     name="password"
                     type="password"
                     autoComplete="new-password"
-                    placeholder="Minimo 6 caracteres"
+                    placeholder="mínimo 6 caracteres"
                     onChange={() => setFieldErrors((previous) => ({ ...previous, password: undefined }))}
                     aria-invalid={Boolean(fieldErrors.password)}
                   />
@@ -518,7 +518,7 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Ya tienes cuenta?{" "}
             <button type="button" onClick={onGoLogin} className="font-medium text-primary underline-offset-4 hover:underline">
-              Inicia sesion
+              Inicia sesión
             </button>
           </p>
         </CardContent>
