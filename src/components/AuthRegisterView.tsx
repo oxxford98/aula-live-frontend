@@ -289,7 +289,7 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
 
               <div className="space-y-2">
                 <label htmlFor="register-username" className="text-sm font-medium">
-                  Username unico
+                  Username
                 </label>
                 <Input
                   id="register-username"
@@ -392,7 +392,7 @@ export function AuthRegisterView({ onGoLogin, onRegisterSuccess }: AuthRegisterV
 
                 <div className="space-y-2">
                   <label htmlFor="register-username" className="text-sm font-medium">
-                    Username unico
+                    Username
                   </label>
                   <Input
                     id="register-username"
