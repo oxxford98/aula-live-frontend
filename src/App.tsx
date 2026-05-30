@@ -6,11 +6,14 @@ import { AuthLoginView } from "@/components/AuthLoginView"
 import { AuthRegisterView } from "@/components/AuthRegisterView"
 import { Navbar } from "@/components/Navbar"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
-import { getMyProfile, updateMyProfile, type UserProfile } from "@/lib/api-client"
+import { Toaster } from "@/components/ui/sonner"
+import { deleteUserByUid, getMyProfile, updateMyProfile, type UserProfile } from "@/lib/api-client"
 import { logoutUser, subscribeToAuthState } from "@/lib/firebase-auth"
-import { DashboardView } from "@/views/DashboardView"
+import { DashboardView } from "./views/DashboardView"
 import { LandingView } from "@/views/LandingView"
 import { ProfileView } from "@/views/ProfileView"
+import { RoomView } from "@/views/RoomView"
+import { toast } from "sonner"
 
 export function App() {
   const location = useLocation()
@@ -18,6 +21,7 @@ export function App() {
   const [authUser, setAuthUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const [isDeletingAccountFlow, setIsDeletingAccountFlow] = useState(false)
   const hasCompletedProfile = Boolean(authUser && profile)
   const hasIncompleteSession = Boolean(authUser && !profile)
 
@@ -49,6 +53,12 @@ export function App() {
     return unsubscribe
   }, [refreshProfile])
 
+  useEffect(() => {
+    if (isDeletingAccountFlow && location.pathname === "/") {
+      setIsDeletingAccountFlow(false)
+    }
+  }, [isDeletingAccountFlow, location.pathname])
+
   const handleLogout = async () => {
     navigate("/", { replace: true })
     try {
@@ -58,7 +68,13 @@ export function App() {
     }
   }
 
-  const handleUpdateProfile = async (input: { firstName: string; lastName: string; avatarUrl: string }) => {
+  const handleUpdateProfile = async (input: {
+    firstName: string
+    lastName: string
+    avatarUrl: string
+    username: string
+    email: string
+  }) => {
     if (!authUser) {
       throw new Error("No hay sesion activa")
     }
@@ -67,6 +83,39 @@ export function App() {
     const response = await updateMyProfile(idToken, input)
     setProfile(response.user)
     return response.user
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!authUser) {
+      throw new Error("No hay sesion activa")
+    }
+
+    // Keep the app out of protected routes while session is being torn down.
+    setIsDeletingAccountFlow(true)
+
+    try {
+      const idToken = await authUser.getIdToken()
+      await deleteUserByUid(authUser.uid, idToken)
+
+      navigate("/", { replace: true })
+      toast.success("Cuenta eliminada correctamente", {
+        duration: 10000,
+        description: "Tu cuenta fue eliminada exitosamente.",
+      })
+
+      try {
+        await logoutUser()
+      } catch {
+        // Ignore sign-out failures after account deletion and continue local cleanup.
+      }
+
+      setAuthUser(null)
+      setProfile(null)
+      setIsAuthLoading(false)
+    } catch (error) {
+      setIsDeletingAccountFlow(false)
+      throw error
+    }
   }
 
   const handleRegisterSuccess = async (user?: UserProfile) => {
@@ -107,7 +156,10 @@ export function App() {
 
       <div className="flex-1">
         <Routes>
-          <Route path="/" element={<LandingView isAuthenticated={hasCompletedProfile} onLogout={handleLogout} />} />
+          <Route
+            path="/"
+            element={<LandingView isAuthenticated={hasCompletedProfile} onLogout={handleLogout} />}
+          />
           <Route
             path="/login"
             element={
@@ -135,7 +187,19 @@ export function App() {
                 <Navigate to="/register" replace state={{ reason: "complete_google_profile" }} />
               ) : (
                 <ProtectedRoute isAuthenticated={hasCompletedProfile} isAuthLoading={isAuthLoading}>
-                  <DashboardView profile={profile} />
+                  <DashboardView profile={profile} authUser={authUser} />
+                </ProtectedRoute>
+              )
+            }
+          />
+          <Route
+            path="/rooms/:roomId"
+            element={
+              hasIncompleteSession ? (
+                <Navigate to="/register" replace state={{ reason: "complete_google_profile" }} />
+              ) : (
+                <ProtectedRoute isAuthenticated={hasCompletedProfile} isAuthLoading={isAuthLoading}>
+                  <RoomView authUser={authUser} />
                 </ProtectedRoute>
               )
             }
@@ -143,14 +207,16 @@ export function App() {
           <Route
             path="/profile"
             element={
-              hasIncompleteSession ? (
+              isDeletingAccountFlow ? (
+                <Navigate to="/" replace />
+              ) : hasIncompleteSession ? (
                 <Navigate to="/register" replace state={{ reason: "complete_google_profile" }} />
               ) : (
                 <ProtectedRoute isAuthenticated={hasCompletedProfile} isAuthLoading={isAuthLoading}>
                   <ProfileView
-                    key={profile ? `${profile.uid}-${profile.updatedAt ?? "new"}` : "profile-empty"}
                     profile={profile}
                     onSave={handleUpdateProfile}
+                    onDeleteAccount={handleDeleteAccount}
                   />
                 </ProtectedRoute>
               )
@@ -179,6 +245,8 @@ export function App() {
           </nav>
         </div>
       </footer>
+
+      <Toaster />
     </div>
   )
 }
