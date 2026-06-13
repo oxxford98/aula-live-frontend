@@ -152,6 +152,7 @@ export function App() {
         isLanding={location.pathname === "/"}
         isAuthenticated={hasCompletedProfile}
         onLogout={handleLogout}
+        profile = {profile ?? undefined}
       />
 
       <div className="flex-1">

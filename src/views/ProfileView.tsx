@@ -19,6 +19,8 @@ import { checkUsernameAvailability } from "@/lib/api-client"
 import { toUserMessage } from "@/lib/error-messages"
 import type { UserProfile } from "@/lib/api-client"
 import { toast } from "sonner"
+import { Link } from "react-router-dom"
+import { ArrowLeft } from "lucide-react"
 
 const AVATAR_OPTIONS = [
   "/avatars/avatar-01.png",
@@ -183,6 +185,13 @@ export function ProfileView({ profile, onSave, onDeleteAccount }: ProfileViewPro
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-12 pt-10 sm:px-6 lg:px-8 lg:pt-16">
+      
+      <Button variant="ghost" className="px-2">
+        <Link to="/dashboard" aria-label="Volver">
+          <ArrowLeft className="size-5" />
+        </Link>
+      </Button>
+
       <Card className="border-border/70 bg-card/75">
         <CardHeader>
           <CardTitle className="text-3xl">Perfil</CardTitle>
