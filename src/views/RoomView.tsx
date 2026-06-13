@@ -68,6 +68,8 @@ export function RoomView({ authUser }: RoomViewProps) {
   const socketRef = useRef<Socket | null>(null)
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL as string | undefined
 
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
   const handleCopyRoomId = async () => {
     if (!room?.id) return
     try {
@@ -77,6 +79,10 @@ export function RoomView({ authUser }: RoomViewProps) {
       toast.error("No se pudo copiar el ID")
     }
   }
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   useEffect(() => {
     let cancelled = false
@@ -509,6 +515,7 @@ export function RoomView({ authUser }: RoomViewProps) {
                 </div>
               )
             })}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="border-t p-3 bg-card">
