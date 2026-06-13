@@ -1,7 +1,16 @@
 import type { FormEvent } from "react"
 import { useEffect, useState } from "react"
 import type { User } from "firebase/auth"
-import { Copy, Pencil, Plus, Trash2 } from "lucide-react"
+import {
+  Copy,
+  Keyboard,
+  LayoutDashboard,
+  LogIn,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
@@ -17,10 +26,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { createRoom, deleteRoomById, getMyRooms, updateRoomById, type Room, type UserProfile } from "@/lib/api-client"
+import {
+  createRoom,
+  deleteRoomById,
+  getMyRooms,
+  updateRoomById,
+  type Room,
+  type UserProfile,
+} from "@/lib/api-client"
 import { toUserMessage } from "@/lib/error-messages"
 
 type DashboardViewProps = {
@@ -38,6 +62,7 @@ type RoomFieldErrors = {
 export function DashboardView({ profile, authUser }: DashboardViewProps) {
   const navigate = useNavigate()
   const [rooms, setRooms] = useState<Room[]>([])
+  const [joinRoomCode, setJoinRoomCode] = useState("")
   const [createRoomName, setCreateRoomName] = useState("")
   const [createRoomDescription, setCreateRoomDescription] = useState("")
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
@@ -59,6 +84,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
       }
 
       setIsLoadingRooms(true)
+
       try {
         const idToken = await authUser.getIdToken()
         const response = await getMyRooms(idToken)
@@ -86,7 +112,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
     }
   }, [authUser])
 
-  const validateRoomName = (value: string): string | undefined => {
+  const validateRoomName = (value: string) => {
     const trimmed = value.trim()
 
     if (!trimmed) {
@@ -104,7 +130,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
     return undefined
   }
 
-  const validateRoomDescription = (value: string): string | undefined => {
+  const validateRoomDescription = (value: string) => {
     const trimmed = value.trim()
 
     if (!trimmed) {
@@ -149,8 +175,13 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
       return
     }
 
-    setFieldErrors((previous) => ({ ...previous, createName: undefined, createDescription: undefined }))
+    setFieldErrors((previous) => ({
+      ...previous,
+      createName: undefined,
+      createDescription: undefined,
+    }))
     setIsCreatingRoom(true)
+
     try {
       const idToken = await withIdToken()
       const response = await createRoom(idToken, {
@@ -176,11 +207,28 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
     }
   }
 
+  const handleJoinRoom = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const code = joinRoomCode.trim()
+    if (!code) {
+      toast.error("Debes ingresar el código de la sala")
+      return
+    }
+
+    setJoinRoomCode("")
+    navigate(`/rooms/${code}`)
+  }
+
   const startEditingRoom = (room: Room) => {
     setEditingRoomId(room.id)
     setEditingRoomName(room.name)
     setEditingRoomDescription(room.description)
-    setFieldErrors((previous) => ({ ...previous, editName: undefined, editDescription: undefined }))
+    setFieldErrors((previous) => ({
+      ...previous,
+      editName: undefined,
+      editDescription: undefined,
+    }))
     setIsEditDialogOpen(true)
   }
 
@@ -189,7 +237,11 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
     setEditingRoomId(null)
     setEditingRoomName("")
     setEditingRoomDescription("")
-    setFieldErrors((previous) => ({ ...previous, editName: undefined, editDescription: undefined }))
+    setFieldErrors((previous) => ({
+      ...previous,
+      editName: undefined,
+      editDescription: undefined,
+    }))
   }
 
   const handleSaveRoomName = async (roomId: string) => {
@@ -210,13 +262,16 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
     }
 
     setBusyRoomId(roomId)
+
     try {
       const idToken = await withIdToken()
       const response = await updateRoomById(roomId, idToken, {
         name: editingRoomName.trim(),
         description: editingRoomDescription.trim(),
       })
-      setRooms((previous) => previous.map((room) => (room.id === roomId ? response.room : room)))
+      setRooms((previous) =>
+        previous.map((room) => (room.id === roomId ? response.room : room))
+      )
       cancelEditingRoom()
       toast.success("Sala actualizada", {
         description: "El nuevo nombre se reflejo correctamente en tu dashboard.",
@@ -234,6 +289,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
 
   const handleDeleteRoom = async (roomId: string) => {
     setBusyRoomId(roomId)
+
     try {
       const idToken = await withIdToken()
       await deleteRoomById(roomId, idToken)
@@ -268,167 +324,297 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
   }
 
   const emptyState = !isLoadingRooms && rooms.length === 0
-
   const activeEditRoom = rooms.find((room) => room.id === editingRoomId) ?? null
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-10 sm:px-6 lg:px-8 lg:pt-16">
-      <Card className="border-border/70 bg-card/75">
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <CardTitle className="text-3xl">Dashboard</CardTitle>
-            <CardDescription>
-              Bienvenido{profile ? `, ${profile.firstName}` : ""}. Desde aqui puedes crear y gestionar tus salas de estudio.
-            </CardDescription>
+    <main className="min-h-screen w-full bg-[#0a0a0c] text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-8 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20">
+              <LayoutDashboard className="size-5" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-100">
+                Dashboard
+              </h1>
+              <p className="mt-1 text-sm text-slate-400">
+                Bienvenido{profile ? `, ${profile.firstName}` : ""}. Desde aquí puedes crear y gestionar tus salas de estudio.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <section className="mb-10 rounded-2xl border border-slate-800 bg-[#0f1014] p-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <form
+              onSubmit={handleJoinRoom}
+              className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:flex-1"
+            >
+              <div className="relative flex-1">
+                <Keyboard className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Input
+                  id="join-room-code"
+                  className="pl-11"
+                  placeholder="Pega el código de la sala (Ej: IJS-NES-DLO)"
+                  value={joinRoomCode}
+                  onChange={(event) => setJoinRoomCode(event.target.value)}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                variant="secondary"
+                size="lg"
+                className="w-full sm:w-auto gap-2 font-semibold"
+                disabled={!joinRoomCode.trim()}
+              >
+                <LogIn className="size-4" />
+                Unirse
+              </Button>
+            </form>
+
+            <div className="hidden sm:block h-10 w-px bg-slate-800" />
+
+            <Button
+              type="button"
+              size="lg"
+              className="w-full sm:w-auto gap-2 font-semibold"
+              onClick={() => setIsCreateDialogOpen(true)}
+            >
+              <Plus className="size-5" />
+              Crear sala
+            </Button>
+          </div>
+        </section>
+
+        <section className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-5 text-blue-400" />
+            <h2 className="text-lg font-semibold text-slate-100">
+              Tus salas gestionadas
+            </h2>
           </div>
 
-          <Dialog
-            open={isCreateDialogOpen}
-            onOpenChange={(open) => {
-              setIsCreateDialogOpen(open)
-              if (!open) {
-                setFieldErrors((previous) => ({ ...previous, createName: undefined, createDescription: undefined }))
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button type="button">
-                <Plus className="mr-2 size-4" />
-                Crear sala
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Crear Sala</DialogTitle>
-                <DialogDescription>Ingresa un nombre y descripcion para crear un nuevo espacio como anfitrion.</DialogDescription>
-              </DialogHeader>
-
-              <form className="space-y-4" onSubmit={handleCreateRoom} noValidate>
-                <div className="space-y-2">
-                  <label htmlFor="create-room-name" className="text-sm font-medium">
-                    Nombre de la sala
-                  </label>
-                  <Input
-                    id="create-room-name"
-                    placeholder="Ej. Sala de Algebra"
-                    value={createRoomName}
-                    onChange={(event) => {
-                      setCreateRoomName(event.target.value)
-                      setFieldErrors((previous) => ({ ...previous, createName: undefined }))
-                    }}
-                    aria-invalid={Boolean(fieldErrors.createName)}
-                  />
-                  {fieldErrors.createName ? <p className="text-xs text-destructive">{fieldErrors.createName}</p> : null}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="create-room-description" className="text-sm font-medium">
-                    Descripcion de la sala
-                  </label>
-                  <Input
-                    id="create-room-description"
-                    placeholder="Ej. Resolucion de guias y dudas en vivo"
-                    value={createRoomDescription}
-                    onChange={(event) => {
-                      setCreateRoomDescription(event.target.value)
-                      setFieldErrors((previous) => ({ ...previous, createDescription: undefined }))
-                    }}
-                    aria-invalid={Boolean(fieldErrors.createDescription)}
-                  />
-                  {fieldErrors.createDescription ? <p className="text-xs text-destructive">{fieldErrors.createDescription}</p> : null}
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isCreatingRoom}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isCreatingRoom}>
-                    {isCreatingRoom ? "Creando sala..." : "Crear sala"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {isLoadingRooms ? (
-            <div className="rounded-xl border border-border/60 bg-background/50 p-5 text-sm text-muted-foreground">Cargando tus salas...</div>
-          ) : emptyState ? (
-            <div className="rounded-xl border border-dashed border-border/70 bg-background/40 p-6 text-sm text-muted-foreground">
-              Aun no has creado salas. Usa el boton Crear sala para abrir el formulario.
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {rooms.map((room) => {
-                const isBusy = busyRoomId === room.id
-
-                return (
-                  <Card key={room.id} className="border-border/60 bg-background/45 py-0">
-                    <CardContent className="flex flex-col gap-4 px-5 py-5">
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="space-y-1">
-                          <h3 className="text-xl font-semibold">{room.name}</h3>
-                          <p className="text-sm text-muted-foreground">{room.description}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <p>ID: {room.id}</p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2"
-                              onClick={() => void handleCopyRoomId(room.id)}
-                              disabled={isBusy}
-                            >
-                              <Copy className="size-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <Button type="button" variant="outline" onClick={() => navigate(`/rooms/${room.id}`)} disabled={isBusy}>
-                            Entrar
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => startEditingRoom(room)} disabled={isBusy}>
-                            <Pencil className="mr-2 size-4" />
-                            Editar
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button type="button" variant="destructive" disabled={isBusy}>
-                                <Trash2 className="mr-2 size-4" />
-                                Eliminar
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Eliminar sala</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta accion eliminara la sala {room.name} ({room.id}) de forma permanente.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel type="button" disabled={isBusy}>
-                                  Cancelar
-                                </AlertDialogCancel>
-                                <AlertDialogAction type="button" disabled={isBusy} onClick={() => void handleDeleteRoom(room.id)}>
-                                  {isBusy ? "Eliminando..." : "Si, eliminar sala"}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+          {!isLoadingRooms && (
+            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
+              {rooms.length} salas
+            </span>
           )}
-        </CardContent>
-      </Card>
+        </section>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => (open ? setIsEditDialogOpen(true) : cancelEditingRoom())}>
+        {isLoadingRooms ? (
+          <div className="rounded-[28px] border border-slate-800 bg-slate-950/70 p-8 text-center text-sm text-slate-500">
+            Cargando tus salas...
+          </div>
+        ) : emptyState ? (
+          <div className="rounded-[28px] border border-dashed border-slate-800 bg-slate-900/60 p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-800/60">
+              <Plus className="size-8 text-slate-500" />
+            </div>
+            <h3 className="mb-2 text-lg font-medium text-slate-300">
+              Aún no has creado salas
+            </h3>
+            <p className="mx-auto max-w-xl text-sm leading-6 text-slate-500">
+              Usa el botón "Crear sala" en la barra superior para empezar a organizar tus espacios de estudio.
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:justify-center">
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                onClick={() => setIsCreateDialogOpen(true)}
+              >
+                Crear mi primera sala
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rooms.map((room) => {
+              const isBusy = busyRoomId === room.id
+
+              return (
+                <div
+                  key={room.id}
+                  className="group flex flex-col justify-between gap-4 rounded-xl border border-slate-800 bg-[#0f1014] p-5 transition hover:border-slate-700 hover:bg-slate-900/80 hover:shadow-md"
+                >
+                  <div>
+                    <h3 className="text-lg font-medium text-slate-100 group-hover:text-blue-400 transition-colors truncate">
+                      {room.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-400 line-clamp-2">
+                      {room.description}
+                    </p>
+
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-sm text-slate-400">
+                      <span className="text-xs uppercase tracking-wider text-slate-500">
+                        ID:
+                      </span>
+                      <span className="font-mono text-xs text-slate-300">
+                        {room.id}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-slate-400 hover:text-slate-200"
+                        onClick={() => void handleCopyRoomId(room.id)}
+                        title="Copiar ID"
+                      >
+                        <Copy className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex w-full items-center gap-2 pt-4 border-t border-slate-800 mt-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 bg-slate-900"
+                      onClick={() => navigate(`/rooms/${room.id}`)}
+                      disabled={isBusy}
+                    >
+                      Entrar
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="bg-slate-900"
+                      onClick={() => startEditingRoom(room)}
+                      disabled={isBusy}
+                      title="Editar"
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="h-10 w-10"
+                          disabled={isBusy}
+                          title="Eliminar"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Eliminar sala</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción eliminará la sala {room.name} ({room.id}) de forma permanente.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel type="button" disabled={isBusy}>
+                            Cancelar
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => void handleDeleteRoom(room.id)}
+                          >
+                            {isBusy ? "Eliminando..." : "Sí, eliminar sala"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open)
+          if (!open) {
+            setFieldErrors((previous) => ({
+              ...previous,
+              createName: undefined,
+              createDescription: undefined,
+            }))
+          }
+        }}
+      >
+        <DialogTrigger asChild>
+          <span />
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear Sala</DialogTitle>
+            <DialogDescription>
+              Ingresa un nombre y descripcion para crear un nuevo espacio como anfitrion.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={handleCreateRoom} noValidate>
+            <div className="space-y-2">
+              <label htmlFor="create-room-name" className="text-sm font-medium text-slate-200">
+                Nombre de la sala
+              </label>
+              <Input
+                id="create-room-name"
+                placeholder="Ej. Sala de Algebra"
+                value={createRoomName}
+                onChange={(event) => {
+                  setCreateRoomName(event.target.value)
+                  setFieldErrors((previous) => ({ ...previous, createName: undefined }))
+                }}
+                aria-invalid={Boolean(fieldErrors.createName)}
+              />
+              {fieldErrors.createName ? (
+                <p className="text-xs text-destructive">{fieldErrors.createName}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="create-room-description" className="text-sm font-medium text-slate-200">
+                Descripcion de la sala
+              </label>
+              <Input
+                id="create-room-description"
+                placeholder="Ej. Resolucion de guias y dudas en vivo"
+                value={createRoomDescription}
+                onChange={(event) => {
+                  setCreateRoomDescription(event.target.value)
+                  setFieldErrors((previous) => ({ ...previous, createDescription: undefined }))
+                }}
+                aria-invalid={Boolean(fieldErrors.createDescription)}
+              />
+              {fieldErrors.createDescription ? (
+                <p className="text-xs text-destructive">{fieldErrors.createDescription}</p>
+              ) : null}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                disabled={isCreatingRoom}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isCreatingRoom}>
+                {isCreatingRoom ? "Creando sala..." : "Crear sala"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => (open ? setIsEditDialogOpen(true) : cancelEditingRoom())}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Sala</DialogTitle>
@@ -444,13 +630,12 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
               if (!editingRoomId) {
                 return
               }
-
               void handleSaveRoomName(editingRoomId)
             }}
             noValidate
           >
             <div className="space-y-2">
-              <label htmlFor="edit-room-name" className="text-sm font-medium">
+              <label htmlFor="edit-room-name" className="text-sm font-medium text-slate-200">
                 Nombre de la sala
               </label>
               <Input
@@ -462,11 +647,13 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
                 }}
                 aria-invalid={Boolean(fieldErrors.editName)}
               />
-              {fieldErrors.editName ? <p className="text-xs text-destructive">{fieldErrors.editName}</p> : null}
+              {fieldErrors.editName ? (
+                <p className="text-xs text-destructive">{fieldErrors.editName}</p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="edit-room-description" className="text-sm font-medium">
+              <label htmlFor="edit-room-description" className="text-sm font-medium text-slate-200">
                 Descripcion de la sala
               </label>
               <Input
@@ -478,7 +665,9 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
                 }}
                 aria-invalid={Boolean(fieldErrors.editDescription)}
               />
-              {fieldErrors.editDescription ? <p className="text-xs text-destructive">{fieldErrors.editDescription}</p> : null}
+              {fieldErrors.editDescription ? (
+                <p className="text-xs text-destructive">{fieldErrors.editDescription}</p>
+              ) : null}
             </div>
 
             <DialogFooter>
