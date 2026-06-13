@@ -482,18 +482,33 @@ export function RoomView({ authUser }: RoomViewProps) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex flex-col ${msg.isSystem ? "items-center" : "items-start"}`}>
-                {msg.isSystem ? (
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{msg.text}</span>
-                ) : (
-                  <div className="max-w-[90%]">
-                    <span className="mb-1 block text-xs font-medium text-muted-foreground">{msg.user}</span>
-                    <div className="rounded-2xl rounded-tl-sm bg-card p-2 text-sm">{msg.text}</div>
+            {messages.map((msg) => {
+              if (msg.isSystem) {
+                return (
+                  <div key={msg.id} className="flex justify-center">
+                    <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{msg.text}</span>
                   </div>
-                )}
-              </div>
-            ))}
+                )
+              }
+
+              // soporta distintos formatos: { userUid, displayName, text } o legacy { user, text }
+              const msgUid = (msg as any).userUid ?? (msg as any).uid ?? undefined
+              const msgName = (msg as any).displayName ?? (msg as any).name ?? (msg as any).user ?? "Anon"
+              const myUid = authUser?.uid
+              const isMine = Boolean(msgUid && myUid && msgUid === myUid)
+
+              const displayName = isMine ? "Tú" : msgName
+
+              return (
+                <div key={msg.id} className={`flex ${isMine ? "justify-start" : "justify-end"}`}>
+                  <div className={`flex flex-col ${isMine ? "items-start" : "items-end"} max-w-[90%]`}>
+                    <span className="mb-1 block text-xs font-medium text-muted-foreground">{displayName}</span>
+                    <div className="rounded-2xl bg-card p-2 text-sm">{msg.text}</div>
+                    {msg.createdAt ? <span className="mt-1 text-[10px] text-muted-foreground">{msg.createdAt}</span> : null}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           <div className="border-t p-3 bg-card">
