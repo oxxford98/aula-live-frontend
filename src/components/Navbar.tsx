@@ -32,9 +32,9 @@ export function Navbar({ isLanding, isAuthenticated, onLogout, profile }: Navbar
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const initials = profile
-    ? `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase()
-    : "U"
+  // const initials = profile
+  //   ? `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase()
+  //   : "U"
 
   const userName = profile ? profile.firstName : "Usuario"
   const userLabel = profile ? `${profile.firstName} ${profile.lastName}` : "Usuario"
