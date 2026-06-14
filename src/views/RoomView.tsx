@@ -412,16 +412,15 @@ export function RoomView({ authUser }: RoomViewProps) {
 
             {/* Floating controls: ensure spacing and no overlap */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3 rounded-2xl border bg-card p-2 z-10">
-              <Button variant="secondary" size="icon" className="hover:bg-muted">
+              <Button variant="secondary" size="icon" className="hover:bg-muted" title="Activar micrófono">
                 <Mic className="size-5" />
               </Button>
-              <Button variant="secondary" size="icon" className="hover:bg-muted">
-                <Video className="size-5 text-muted-foreground" />
+              <Button variant="secondary" size="icon" className="hover:bg-muted" title="Iniciar video">
+                <Video className="size-5" />
               </Button>
 
-              <Button variant="secondary" size="icon" className="gap-2 px-3">
+              <Button variant="secondary" size="icon" className="gap-2 px-3" title="Compartir pantalla">
                 <MonitorUp className="size-5" />
-                <span className="hidden sm:inline">Compartir</span>
               </Button>
 
               {/* Mobile-only chat toggle in floating controls (keeps it reachable) */}
@@ -431,14 +430,14 @@ export function RoomView({ authUser }: RoomViewProps) {
                 className="lg:hidden"
                 onClick={() => setIsMobileChatOpen(true)}
                 aria-label="Abrir chat"
+                title="Chat" 
               >
                 <MessageSquare className="size-5" />
               </Button>
 
               <div className="w-px h-8 bg-border mx-1" />
-              <Button variant="destructive" size="icon" className="gap-2">
+              <Button variant="destructive" size="icon" className="gap-2" title="salir de la sala">
                 <PhoneMissed className="size-5" />
-                <span className="hidden sm:inline">Salir</span>
               </Button>
             </div>
           </div>

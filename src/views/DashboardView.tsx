@@ -345,7 +345,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
           </div>
         </header>
 
-        <section className="mb-10 rounded-2xl border border-slate-800 bg-[#0f1014] p-5 shadow-sm">
+        <section className="mb-10 rounded-2xl border bg-card/75 p-5 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <form
               onSubmit={handleJoinRoom}
@@ -416,7 +416,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
               Aún no has creado salas
             </h3>
             <p className="mx-auto max-w-xl text-sm leading-6 text-slate-500">
-              Usa el botón "Crear sala" en la barra superior para empezar a organizar tus espacios de estudio.
+              Usa el botón "Crear sala" para empezar a organizar tus espacios de estudio.
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:justify-center">
               <Button
@@ -436,7 +436,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
               return (
                 <div
                   key={room.id}
-                  className="group flex flex-col justify-between gap-4 rounded-xl border border-slate-800 bg-[#0f1014] p-5 transition hover:border-slate-700 hover:bg-slate-900/80 hover:shadow-md"
+                  className="group flex flex-col justify-between gap-4 rounded-xl border bg-card/75 p-5 transition hover:border-slate-700 hover:bg-slate-900/80 hover:shadow-md"
                 >
                   <div>
                     <h3 className="text-lg font-medium text-slate-100 group-hover:text-blue-400 transition-colors truncate">
@@ -495,7 +495,6 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
                           type="button"
                           variant="destructive"
                           size="icon"
-                          className="h-10 w-10"
                           disabled={isBusy}
                           title="Eliminar"
                         >
