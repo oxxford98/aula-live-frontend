@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import type { User } from "firebase/auth"
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom"
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom"
 
 import { AuthLoginView } from "@/components/AuthLoginView"
 import { AuthRegisterView } from "@/components/AuthRegisterView"
@@ -16,7 +16,6 @@ import { RoomView } from "@/views/RoomView"
 import { toast } from "sonner"
 
 export function App() {
-  const location = useLocation()
   const navigate = useNavigate()
   const [authUser, setAuthUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -52,12 +51,6 @@ export function App() {
 
     return unsubscribe
   }, [refreshProfile])
-
-  useEffect(() => {
-    if (isDeletingAccountFlow && location.pathname === "/") {
-      setIsDeletingAccountFlow(false)
-    }
-  }, [isDeletingAccountFlow, location.pathname])
 
   const handleLogout = async () => {
     navigate("/", { replace: true })
@@ -112,9 +105,8 @@ export function App() {
       setAuthUser(null)
       setProfile(null)
       setIsAuthLoading(false)
-    } catch (error) {
+    } finally {
       setIsDeletingAccountFlow(false)
-      throw error
     }
   }
 

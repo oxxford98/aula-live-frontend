@@ -42,6 +42,38 @@ type RoomViewProps = {
   authUser: User | null
 }
 
+type ChatMessage = {
+  id: number | string
+  user?: string
+  userUid?: string
+  uid?: string
+  displayName?: string
+  name?: string
+  text: string
+  isSystem?: boolean
+  createdAt?: string
+}
+
+type ChatParticipant = {
+  id: string
+  name: string
+  role?: "admin" | "participant"
+  isSpeaking?: boolean
+}
+
+type JoinRoomAck = {
+  ok: boolean
+  messages?: ChatMessage[]
+  participants?: ChatParticipant[]
+  error?: string
+}
+
+type SendMessageAck = {
+  ok: boolean
+  message?: ChatMessage
+  error?: string
+}
+
 export function RoomView({ authUser }: RoomViewProps) {
   const navigate = useNavigate()
   const { roomId } = useParams<{ roomId: string }>()
@@ -59,11 +91,9 @@ export function RoomView({ authUser }: RoomViewProps) {
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false)
   const [chatMessage, setChatMessage] = useState("")
   const [messages, setMessages] = useState<
-    { id: number | string; user: string; text: string; isSystem?: boolean; createdAt?: string }[]
+    ChatMessage[]
   >([{ id: 1, user: "Sistema", text: "Bienvenido a la sala.", isSystem: true }])
-  const [participants, setParticipants] = useState<
-    { id: string; name: string; role?: "admin" | "participant"; isSpeaking?: boolean }[]
-  >([])
+  const [participants, setParticipants] = useState<ChatParticipant[]>([])
 
   const socketRef = useRef<Socket | null>(null)
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL as string | undefined
@@ -139,7 +169,7 @@ export function RoomView({ authUser }: RoomViewProps) {
           socket.emit(
             "join_room",
             roomId,
-            (res: { ok: boolean; messages?: any[]; participants?: any[]; error?: string }) => {
+            (res: JoinRoomAck) => {
               if (!active) return
               if (res?.ok) {
                 if (Array.isArray(res.messages)) {
@@ -155,18 +185,18 @@ export function RoomView({ authUser }: RoomViewProps) {
           )
         })
 
-        socket.on("message", (msg: any) => {
+        socket.on("message", (msg: ChatMessage) => {
           if (!active) return
           setMessages((prev) => [...prev, msg])
         })
 
         // opcional: recibir actualizaciones de participantes
-        socket.on("room_participants", (list: any[]) => {
+        socket.on("room_participants", (list: ChatParticipant[]) => {
           if (!active) return
           setParticipants(list)
         })
 
-        socket.on("connect_error", (err: any) => {
+        socket.on("connect_error", (err: Error) => {
           console.error("Socket connect_error", err)
         })
       } catch (err) {
@@ -182,13 +212,15 @@ export function RoomView({ authUser }: RoomViewProps) {
       if (s) {
         try {
           s.emit("leave_room", roomId)
-        } catch {}
+        } catch (error) {
+          void error
+        }
         s.disconnect()
         socketRef.current = null
       }
     }
     // intentionally depend on authUser?.uid and roomId
-  }, [authUser?.uid, roomId, SOCKET_URL])
+  }, [authUser, roomId, SOCKET_URL])
 
   const startEditing = () => {
     if (!room) return
@@ -257,11 +289,12 @@ export function RoomView({ authUser }: RoomViewProps) {
 
     // enviar por socket con callback de ack si está conectado
     if (socket && socket.connected) {
-      socket.emit("message", payload, (res: { ok: boolean; message?: any; error?: string }) => {
+      socket.emit("message", payload, (res: SendMessageAck) => {
         if (res?.ok) {
           // opcional: el servidor puede devolver el mensaje con id/createdAt
-          if (res.message) {
-            setMessages((prev) => [...prev, res.message])
+          const nextMessage = res.message
+          if (nextMessage) {
+            setMessages((prev) => [...prev, nextMessage])
           }
         } else {
           toast.error("No se pudo enviar el mensaje", { description: res?.error ?? "" })
@@ -497,8 +530,8 @@ export function RoomView({ authUser }: RoomViewProps) {
               }
 
               // soporta distintos formatos: { userUid, displayName, text } o legacy { user, text }
-              const msgUid = (msg as any).userUid ?? (msg as any).uid ?? undefined
-              const msgName = (msg as any).displayName ?? (msg as any).name ?? (msg as any).user ?? "Anon"
+              const msgUid = msg.userUid ?? msg.uid
+              const msgName = msg.displayName ?? msg.name ?? msg.user ?? "Anon"
               const myUid = authUser?.uid
               const isMine = Boolean(msgUid && myUid && msgUid === myUid)
 
