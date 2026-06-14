@@ -327,7 +327,7 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
   const activeEditRoom = rooms.find((room) => room.id === editingRoomId) ?? null
 
   return (
-    <main className="min-h-screen w-full bg-[#0a0a0c] text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
+    <main className="min-h-screen w-full bg-background text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex flex-col gap-4">
           <div className="flex items-center gap-3">

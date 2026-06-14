@@ -385,7 +385,7 @@ export function RoomView({ authUser }: RoomViewProps) {
 
           {/* Chat button visible on mobile to open full-screen chat */}
           <Button
-            variant={isMobileChatOpen ? "primary" : "ghost"}
+            variant={isMobileChatOpen ? "default" : "ghost"}
             size="icon"
             className="lg:hidden h-8 w-8 ml-2"
             onClick={() => setIsMobileChatOpen(true)}
@@ -419,7 +419,7 @@ export function RoomView({ authUser }: RoomViewProps) {
                 <Video className="size-5 text-muted-foreground" />
               </Button>
 
-              <Button variant="primary" size="icon" className="gap-2 px-3">
+              <Button variant="secondary" size="icon" className="gap-2 px-3">
                 <MonitorUp className="size-5" />
                 <span className="hidden sm:inline">Compartir</span>
               </Button>
@@ -526,7 +526,7 @@ export function RoomView({ authUser }: RoomViewProps) {
                 placeholder="Escribe un mensaje..."
                 className="rounded-full h-10"
               />
-              <Button type="submit" variant="primary" size="icon" className="shrink-0 h-10 w-10 rounded-full">
+              <Button type="submit" variant="default" size="icon" className="shrink-0 h-10 w-10 rounded-full">
                 <Send className="size-4" />
               </Button>
             </form>
