@@ -40,8 +40,10 @@ import { Input } from "@/components/ui/input"
 import {
   createRoom,
   deleteRoomById,
+  getMyJoinedRooms,
   getMyRooms,
   updateRoomById,
+  type JoinedRoom,
   type Room,
   type UserProfile,
 } from "@/lib/api-client"
@@ -62,6 +64,7 @@ type RoomFieldErrors = {
 export function DashboardView({ profile, authUser }: DashboardViewProps) {
   const navigate = useNavigate()
   const [rooms, setRooms] = useState<Room[]>([])
+  const [joinedRooms, setJoinedRooms] = useState<JoinedRoom[]>([])
   const [joinRoomCode, setJoinRoomCode] = useState("")
   const [createRoomName, setCreateRoomName] = useState("")
   const [createRoomDescription, setCreateRoomDescription] = useState("")
@@ -87,9 +90,13 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
 
       try {
         const idToken = await authUser.getIdToken()
-        const response = await getMyRooms(idToken)
+        const [ownedResponse, joinedResponse] = await Promise.all([
+          getMyRooms(idToken),
+          getMyJoinedRooms(idToken),
+        ])
         if (!cancelled) {
-          setRooms(response.rooms)
+          setRooms(ownedResponse.rooms)
+          setJoinedRooms(joinedResponse.rooms)
         }
       } catch (error) {
         if (!cancelled) {
@@ -325,6 +332,9 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
 
   const emptyState = !isLoadingRooms && rooms.length === 0
   const activeEditRoom = rooms.find((room) => room.id === editingRoomId) ?? null
+  const joinedOnlyRooms = joinedRooms.filter((joinedRoom) =>
+    !rooms.some((ownedRoom) => ownedRoom.id === joinedRoom.id)
+  )
 
   return (
     <main className="min-h-screen w-full bg-background text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
@@ -526,6 +536,69 @@ export function DashboardView({ profile, authUser }: DashboardViewProps) {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        <section className="mb-6 mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <LogIn className="size-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-slate-100">
+              Salas a las que te has unido
+            </h2>
+          </div>
+
+          {!isLoadingRooms && (
+            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
+              {joinedOnlyRooms.length} salas
+            </span>
+          )}
+        </section>
+
+        {isLoadingRooms ? null : joinedOnlyRooms.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-5 text-sm text-slate-500">
+            Aún no tienes historial de salas unidas. Usa un código para entrar a una sala y aparecerá aquí.
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {joinedOnlyRooms.map((room) => (
+              <div
+                key={room.id}
+                className="group flex flex-col justify-between gap-4 rounded-xl border bg-card/65 p-5 transition hover:border-slate-700 hover:bg-slate-900/80"
+              >
+                <div>
+                  <h3 className="text-lg font-medium text-slate-100 group-hover:text-cyan-300 transition-colors truncate">
+                    {room.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-400 line-clamp-2">
+                    {room.description}
+                  </p>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Última vez: {room.lastJoinedAt ? new Date(room.lastJoinedAt).toLocaleString() : "Sin registro"}
+                  </p>
+                </div>
+
+                <div className="flex w-full items-center gap-2 pt-4 border-t border-slate-800 mt-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 bg-slate-900"
+                    onClick={() => navigate(`/rooms/${room.id}`)}
+                  >
+                    Entrar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-400 hover:text-slate-200"
+                    onClick={() => void handleCopyRoomId(room.id)}
+                    title="Copiar ID"
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

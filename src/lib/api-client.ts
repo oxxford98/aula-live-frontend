@@ -54,6 +54,10 @@ export type Room = {
   updatedAt: string | null
 }
 
+export type JoinedRoom = Room & {
+  lastJoinedAt: string | null
+}
+
 export type GoogleLoginResponse =
   | {
       requiresUsername: false
@@ -76,12 +80,42 @@ type ApiErrorPayload = {
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") || "http://localhost:3000"
 
+const baseHost = (() => {
+  try {
+    return new URL(baseUrl).hostname
+  } catch {
+    return ""
+  }
+})()
+
+const isNgrokUrl = /ngrok(-free)?\.app$/i.test(baseHost)
+
+const createHeaders = (input?: {
+  withJsonContentType?: boolean
+  idToken?: string
+}): Record<string, string> => {
+  const headers: Record<string, string> = {}
+
+  if (input?.withJsonContentType) {
+    headers["Content-Type"] = "application/json"
+  }
+
+  if (input?.idToken) {
+    headers.Authorization = `Bearer ${input.idToken}`
+  }
+
+  // Evita el interstitial de ngrok en requests XHR/fetch desde navegador.
+  if (isNgrokUrl) {
+    headers["ngrok-skip-browser-warning"] = "true"
+  }
+
+  return headers
+}
+
 const postJson = async <TResponse, TBody>(path: string, body: TBody): Promise<TResponse> => {
   const response = await fetch(`${baseUrl}/api${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: createHeaders({ withJsonContentType: true }),
     body: JSON.stringify(body),
   })
 
@@ -97,10 +131,7 @@ const postJson = async <TResponse, TBody>(path: string, body: TBody): Promise<TR
 const postJsonWithAuth = async <TResponse, TBody>(path: string, body: TBody, idToken: string): Promise<TResponse> => {
   const response = await fetch(`${baseUrl}/api${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${idToken}`,
-    },
+    headers: createHeaders({ withJsonContentType: true, idToken }),
     body: JSON.stringify(body),
   })
 
@@ -116,10 +147,7 @@ const postJsonWithAuth = async <TResponse, TBody>(path: string, body: TBody, idT
 const patchJson = async <TResponse, TBody>(path: string, body: TBody, idToken: string): Promise<TResponse> => {
   const response = await fetch(`${baseUrl}/api${path}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${idToken}`,
-    },
+    headers: createHeaders({ withJsonContentType: true, idToken }),
     body: JSON.stringify(body),
   })
 
@@ -135,9 +163,7 @@ const patchJson = async <TResponse, TBody>(path: string, body: TBody, idToken: s
 const deleteJsonWithAuth = async <TResponse>(path: string, idToken: string): Promise<TResponse> => {
   const response = await fetch(`${baseUrl}/api${path}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-    },
+    headers: createHeaders({ idToken }),
   })
 
   const payload = (await response.json().catch(() => ({}))) as TResponse & ApiErrorPayload
@@ -150,7 +176,9 @@ const deleteJsonWithAuth = async <TResponse>(path: string, idToken: string): Pro
 }
 
 const getJson = async <TResponse>(path: string): Promise<TResponse> => {
-  const response = await fetch(`${baseUrl}/api${path}`)
+  const response = await fetch(`${baseUrl}/api${path}`, {
+    headers: createHeaders(),
+  })
   const payload = (await response.json().catch(() => ({}))) as TResponse & ApiErrorPayload
 
   if (!response.ok) {
@@ -162,9 +190,7 @@ const getJson = async <TResponse>(path: string): Promise<TResponse> => {
 
 const getJsonWithAuth = async <TResponse>(path: string, idToken: string): Promise<TResponse> => {
   const response = await fetch(`${baseUrl}/api${path}`, {
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-    },
+    headers: createHeaders({ idToken }),
   })
 
   const payload = (await response.json().catch(() => ({}))) as TResponse & ApiErrorPayload
@@ -202,6 +228,18 @@ export const deleteUserByUid = async (uid: string, idToken: string) => {
 
 export const getMyRooms = async (idToken: string) => {
   return getJsonWithAuth<{ rooms: Room[] }>("/rooms/mine", idToken)
+}
+
+export const getMyJoinedRooms = async (idToken: string) => {
+  return getJsonWithAuth<{ rooms: JoinedRoom[] }>("/rooms/joined", idToken)
+}
+
+export const markRoomAsJoined = async (roomId: string, idToken: string) => {
+  return postJsonWithAuth<{ message: string }, Record<string, never>>(
+    `/rooms/${encodeURIComponent(roomId)}/join`,
+    {},
+    idToken
+  )
 }
 
 export const createRoom = async (idToken: string, input: CreateRoomInput) => {
