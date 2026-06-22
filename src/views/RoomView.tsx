@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import type { User } from "firebase/auth"
 import { getAuth } from "firebase/auth"
 import { Link, useNavigate, useParams } from "react-router-dom"
@@ -1335,7 +1335,7 @@ export function RoomView({ authUser, profile }: RoomViewProps) {
     setChatMessage("")
   }
 
-  const leaveCurrentRoom = () => {
+  const leaveCurrentRoom = useCallback(() => {
     const socket = socketRef.current
     if (!socket || !roomId) {
       return
@@ -1349,7 +1349,7 @@ export function RoomView({ authUser, profile }: RoomViewProps) {
 
     socket.disconnect()
     socketRef.current = null
-  }
+  }, [roomId])
 
   const handleLeaveRoom = () => {
     leaveCurrentRoom()
@@ -1372,7 +1372,7 @@ export function RoomView({ authUser, profile }: RoomViewProps) {
       window.removeEventListener("pagehide", handlePageExit)
       window.removeEventListener("beforeunload", handlePageExit)
     }
-  }, [roomId])
+  }, [leaveCurrentRoom, roomId])
 
   const participantIdsForGrid = useMemo(() => {
     const ids = new Set<string>()
