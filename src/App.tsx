@@ -192,7 +192,7 @@ export function App() {
                 <Navigate to="/register" replace state={{ reason: "complete_google_profile" }} />
               ) : (
                 <ProtectedRoute isAuthenticated={hasCompletedProfile} isAuthLoading={isAuthLoading}>
-                  <RoomView authUser={authUser} />
+                  <RoomView authUser={authUser} profile={profile} />
                 </ProtectedRoute>
               )
             }

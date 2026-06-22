@@ -39,11 +39,12 @@ import {
 import { Button } from "@/components/ui/button"
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { deleteRoomById, getRoomById, markRoomAsJoined, updateRoomById, type Room } from "@/lib/api-client"
+import { deleteRoomById, getRoomById, markRoomAsJoined, updateRoomById, type Room, type UserProfile } from "@/lib/api-client"
 import { toUserMessage } from "@/lib/error-messages"
 
 type RoomViewProps = {
   authUser: User | null
+  profile: UserProfile | null
 }
 
 type ChatMessage = {
@@ -60,9 +61,11 @@ type ChatMessage = {
 
 type ChatParticipant = {
   id: string
+  uid?: string
   name: string
   role?: "admin" | "participant"
   isSpeaking?: boolean
+  avatarUrl?: string | null
 }
 
 type PeerMediaState = {
@@ -73,8 +76,10 @@ type PeerMediaState = {
 
 type Peer = {
   id: string
+  uid?: string
   name: string
   role?: "admin" | "participant"
+  avatarUrl?: string | null
 }
 
 type MediaStateEvent = {
@@ -128,6 +133,19 @@ const defaultPeerMediaState = (): PeerMediaState => ({
   screenSharing: false,
 })
 
+const isScreenShareSupported = (): boolean => {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
+    return false
+  }
+
+  const ua = navigator.userAgent || ""
+  const isIOSLike = /iPad|iPhone|iPod/i.test(ua)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+  // iOS/iPadOS browsers run on WebKit and screen share support is still limited.
+  return !isIOSLike
+}
+
 const toMediaErrorMessage = (error: unknown): string => {
   if (!(error instanceof Error)) {
     return "No se pudo acceder a cámara/micrófono. Revisa permisos del navegador."
@@ -150,9 +168,21 @@ const toMediaErrorMessage = (error: unknown): string => {
   return "No se pudo acceder a cámara/micrófono. Revisa permisos del navegador."
 }
 
+const normalizeParticipants = (items: ChatParticipant[]): ChatParticipant[] => {
+  const byIdentity = new Map<string, ChatParticipant>()
+
+  for (const item of items) {
+    const key = item.uid || item.id
+    byIdentity.set(key, item)
+  }
+
+  return Array.from(byIdentity.values())
+}
+
 function VideoTile({
   stream,
   name,
+  avatarUrl,
   muted,
   mediaState,
   isLocal,
@@ -162,6 +192,7 @@ function VideoTile({
 }: {
   stream: MediaStream | null
   name: string
+  avatarUrl?: string | null
   muted: boolean
   mediaState: PeerMediaState
   isLocal: boolean
@@ -208,7 +239,7 @@ function VideoTile({
   }, [stream])
 
   return (
-    <article className="relative overflow-hidden rounded-xl border bg-card">
+    <article className="relative h-full min-h-0 overflow-hidden rounded-xl border bg-card">
       {onTogglePin ? (
         <button
           type="button"
@@ -229,24 +260,35 @@ function VideoTile({
           autoPlay
           playsInline
           muted={muted}
-          className={`h-full ${compact ? "min-h-28" : "min-h-48"} w-full ${mediaState.screenSharing ? "object-contain bg-black" : "object-cover"} ${mediaState.videoEnabled ? "" : "opacity-20"}`}
+          className={`h-full min-h-0 ${compact ? "min-h-24 lg:min-h-0" : "min-h-40 lg:min-h-0"} w-full ${mediaState.screenSharing ? "object-contain bg-black" : "object-cover"} ${mediaState.videoEnabled ? "" : "opacity-20"}`}
         />
       ) : (
-        <div className={`flex h-full ${compact ? "min-h-28" : "min-h-48"} w-full items-center justify-center bg-muted/40`}>
+        <div className={`flex h-full min-h-0 ${compact ? "min-h-24 lg:min-h-0" : "min-h-40 lg:min-h-0"} w-full items-center justify-center bg-muted/40`}>
           <UserIcon className="size-10 text-muted-foreground" />
         </div>
       )}
 
-      {!mediaState.videoEnabled && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/30">
-          <VideoOff className="size-8 text-foreground" />
+      {!mediaState.videoEnabled ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/30">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`Avatar de ${isLocal ? "Tu" : name}`}
+              className={`${compact ? "size-16 lg:size-14" : "size-24 lg:size-20"} relative z-10 rounded-full border border-border/70 object-cover shadow-md`}
+            />
+          ) : (
+            <div className={`${compact ? "size-16 lg:size-14" : "size-24 lg:size-20"} relative z-10 flex items-center justify-center rounded-full bg-muted text-muted-foreground`}>
+              <UserIcon className={`${compact ? "size-7 lg:size-6" : "size-10 lg:size-8"}`} />
+            </div>
+          )}
         </div>
-      )}
+      ) : null}
 
       <footer className="absolute bottom-2 left-2 right-2 flex items-center justify-between rounded-md bg-background/75 px-2 py-1 text-xs">
         <span className="truncate font-medium">{isLocal ? "Tu" : name}</span>
         <span className="flex items-center gap-1">
           {mediaState.audioEnabled ? <Mic className="size-3.5" /> : <MicOff className="size-3.5 text-destructive" />}
+          {!mediaState.videoEnabled ? <VideoOff className="size-3.5 text-destructive" /> : null}
           {mediaState.screenSharing ? <MonitorUp className="size-3.5 text-primary" /> : null}
         </span>
       </footer>
@@ -284,7 +326,7 @@ function RemoteAudioSink({ stream }: { stream: MediaStream }) {
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />
 }
 
-export function RoomView({ authUser }: RoomViewProps) {
+export function RoomView({ authUser, profile }: RoomViewProps) {
   const navigate = useNavigate()
   const { roomId } = useParams<{ roomId: string }>()
   const [room, setRoom] = useState<Room | null>(null)
@@ -315,6 +357,7 @@ export function RoomView({ authUser }: RoomViewProps) {
   const [remoteStreams, setRemoteStreams] = useState<Array<{ peerId: string; stream: MediaStream }>>([])
   const [localPreviewStream, setLocalPreviewStream] = useState<MediaStream | null>(null)
   const [pinnedTileId, setPinnedTileId] = useState<string | null>(null)
+  const [hasCameraAvailable, setHasCameraAvailable] = useState(true)
 
   const socketRef = useRef<Socket | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -322,10 +365,12 @@ export function RoomView({ authUser }: RoomViewProps) {
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map())
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map())
+  const socketConnectionRunRef = useRef(0)
   const selfPeerIdRef = useRef<string | null>(null)
   const localMediaStateRef = useRef<PeerMediaState>(localMediaState)
   const pendingMediaRequestRef = useRef<Promise<void> | null>(null)
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL as string | undefined
+  const canShareScreen = useMemo(() => isScreenShareSupported(), [])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -699,7 +744,9 @@ export function RoomView({ authUser }: RoomViewProps) {
   const handleToggleVideo = () => {
     const videoTrack = localStreamRef.current?.getVideoTracks()[0]
     if (!videoTrack) {
-      toast.error("No se detectó cámara")
+      toast.error("No hay cámara disponible", {
+        description: "Este dispositivo no tiene cámara activa o el navegador no pudo acceder a ella.",
+      })
       return
     }
 
@@ -713,6 +760,13 @@ export function RoomView({ authUser }: RoomViewProps) {
   }
 
   const handleToggleScreenShare = async () => {
+    if (!canShareScreen) {
+      toast.error("Este navegador no permite compartir pantalla", {
+        description: "En iPhone/iPad esta función suele estar bloqueada. Usa desktop para compartir pantalla.",
+      })
+      return
+    }
+
     if (screenStreamRef.current) {
       await stopScreenShare()
       return
@@ -788,6 +842,8 @@ export function RoomView({ authUser }: RoomViewProps) {
 
         try {
           const devices = await navigator.mediaDevices.enumerateDevices()
+          const hasVideoInput = devices.some((device) => device.kind === "videoinput")
+          setHasCameraAvailable(hasVideoInput)
           logMediaDebug(
             "Dispositivos",
             devices.map((device) => ({ kind: device.kind, label: device.label || "(sin label)", id: device.deviceId }))
@@ -843,6 +899,8 @@ export function RoomView({ authUser }: RoomViewProps) {
         if (!stream) {
           throw new Error("No stream available")
         }
+
+        setHasCameraAvailable(capturedVideo)
 
         if (localStreamRef.current) {
           localStreamRef.current.getTracks().forEach((track) => track.stop())
@@ -984,21 +1042,44 @@ export function RoomView({ authUser }: RoomViewProps) {
       return
     }
 
+    const runId = socketConnectionRunRef.current + 1
+    socketConnectionRunRef.current = runId
     let active = true
+    let effectSocket: Socket | null = null
+
     const connectSocket = async () => {
       try {
         // obtener token: preferir el authUser que te llega como prop
         const token =
           (await authUser?.getIdToken()) ?? (await getAuth().currentUser?.getIdToken?.())
 
+        if (!active || socketConnectionRunRef.current !== runId || !token) {
+          return
+        }
+
         const socket = io(SOCKET_URL, {
           auth: { token },
           transports: ["websocket", "polling"],
         })
 
+        effectSocket = socket
+
+        if (!active || socketConnectionRunRef.current !== runId) {
+          socket.disconnect()
+          return
+        }
+
+        if (socketRef.current && socketRef.current !== socket) {
+          socketRef.current.disconnect()
+        }
+
         socketRef.current = socket
 
         socket.on("connect", () => {
+          if (!active || socketConnectionRunRef.current !== runId) {
+            return
+          }
+
           // join the room and request history
           socket.emit(
             "join_room",
@@ -1010,7 +1091,7 @@ export function RoomView({ authUser }: RoomViewProps) {
                   setMessages(res.messages)
                 }
                 if (Array.isArray(res.participants)) {
-                  setParticipants(res.participants)
+                  setParticipants(normalizeParticipants(res.participants))
                 }
                 if (res.selfPeerId) {
                   setSelfPeerId(res.selfPeerId)
@@ -1049,7 +1130,7 @@ export function RoomView({ authUser }: RoomViewProps) {
         // opcional: recibir actualizaciones de participantes
         socket.on("room_participants", (list: ChatParticipant[]) => {
           if (!active) return
-          setParticipants(list)
+          setParticipants(normalizeParticipants(list))
         })
 
         socket.on("peer_joined", (payload: { peer: Peer; mediaState: PeerMediaState }) => {
@@ -1142,15 +1223,18 @@ export function RoomView({ authUser }: RoomViewProps) {
 
     return () => {
       active = false
-      const s = socketRef.current
-      if (s) {
+
+      if (effectSocket) {
         try {
-          s.emit("leave_room", roomId)
+          effectSocket.emit("leave_room", roomId)
         } catch (error) {
           void error
         }
-        s.disconnect()
-        socketRef.current = null
+
+        effectSocket.disconnect()
+        if (socketRef.current === effectSocket) {
+          socketRef.current = null
+        }
       }
 
       for (const pc of peerConnectionsRef.current.values()) {
@@ -1251,22 +1335,57 @@ export function RoomView({ authUser }: RoomViewProps) {
     setChatMessage("")
   }
 
-  const handleLeaveRoom = () => {
-    if (socketRef.current && roomId) {
-      socketRef.current.emit("leave_room", roomId)
-      socketRef.current.disconnect()
+  const leaveCurrentRoom = () => {
+    const socket = socketRef.current
+    if (!socket || !roomId) {
+      return
     }
+
+    try {
+      socket.emit("leave_room", roomId)
+    } catch (error) {
+      void error
+    }
+
+    socket.disconnect()
+    socketRef.current = null
+  }
+
+  const handleLeaveRoom = () => {
+    leaveCurrentRoom()
     navigate("/dashboard", { replace: true })
   }
 
+  useEffect(() => {
+    if (!roomId) {
+      return
+    }
+
+    const handlePageExit = () => {
+      leaveCurrentRoom()
+    }
+
+    window.addEventListener("pagehide", handlePageExit)
+    window.addEventListener("beforeunload", handlePageExit)
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageExit)
+      window.removeEventListener("beforeunload", handlePageExit)
+    }
+  }, [roomId])
+
   const participantIdsForGrid = useMemo(() => {
     const ids = new Set<string>()
+    const selfUid = authUser?.uid || null
 
     if (selfPeerId) {
       ids.add(selfPeerId)
     }
 
     for (const participant of participants) {
+      if (selfUid && participant.uid === selfUid) {
+        continue
+      }
       ids.add(participant.id)
     }
 
@@ -1276,14 +1395,16 @@ export function RoomView({ authUser }: RoomViewProps) {
     }
 
     return Array.from(ids)
-  }, [participants, selfPeerId, localPreviewStream])
+  }, [authUser?.uid, participants, selfPeerId, localPreviewStream])
 
   const orderedTiles = participantIdsForGrid.map((participantId) => {
     const isLocal = selfPeerId ? participantId === selfPeerId : participantId === "local"
+    const participant = participantsById.get(participantId)
     return {
       id: participantId,
       isLocal,
-      name: isLocal ? "Tu" : participantsById.get(participantId)?.name || "Participante",
+      name: isLocal ? "Tu" : participant?.name || "Participante",
+      avatarUrl: isLocal ? profile?.avatarUrl || null : participant?.avatarUrl || null,
       stream: isLocal ? localPreviewStream : remoteStreamsByPeerId.get(participantId) || null,
       mediaState: isLocal
         ? localMediaState
@@ -1313,7 +1434,7 @@ export function RoomView({ authUser }: RoomViewProps) {
           : "grid-cols-2 xl:grid-cols-3"
 
   return (
-    <div className="flex h-screen w-full flex-col bg-background text-foreground">
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
       <div aria-hidden="true" className="hidden">
         {remoteStreams.map(({ peerId, stream }) => (
           <RemoteAudioSink key={`audio-${peerId}`} stream={stream} />
@@ -1321,34 +1442,34 @@ export function RoomView({ authUser }: RoomViewProps) {
       </div>
 
       {/* HEADER */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4 sm:px-6">
-        <div className="flex flex-1 items-center gap-4">
-          <Button variant="ghost" className="px-2">
+      <header className="shrink-0 border-b px-4 py-3 sm:px-6 lg:flex lg:h-16 lg:items-center lg:justify-between lg:py-0">
+        <div className="flex min-w-0 items-start gap-3 lg:flex-1 lg:items-center lg:gap-4">
+          <Button variant="ghost" className="mt-0.5 px-2 lg:mt-0">
             <Link to="/dashboard" aria-label="Volver">
               <ArrowLeft className="size-5" />
             </Link>
           </Button>
 
-          <div className="flex flex-col">
+          <div className="min-w-0 flex-1 flex-col">
             {isEditingRoomName ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Input
                   value={roomNameDraft}
                   onChange={(e) => setRoomNameDraft(e.target.value)}
-                  className="h-8 w-52"
+                  className="h-8 w-full sm:w-52"
                   placeholder="Nombre de la sala"
                 />
-                <Button size="sm" onClick={() => void handleSaveRoomName()} disabled={isSavingRoomName}>
+                <Button size="sm" onClick={() => void handleSaveRoomName()} disabled={isSavingRoomName} className="sm:w-auto">
                   {isSavingRoomName ? "..." : "Guardar"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={cancelEditing}>
+                <Button size="sm" variant="outline" onClick={cancelEditing} className="sm:w-auto">
                   Cancelar
                 </Button>
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-semibold">{isLoading ? "Cargando..." : room?.name ?? "Sala"}</h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-lg font-semibold">{isLoading ? "Cargando..." : room?.name ?? "Sala"}</h1>
                   {isCreator && (
                     <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold text-primary">
                       <ShieldCheck className="size-3" />
@@ -1356,16 +1477,16 @@ export function RoomView({ authUser }: RoomViewProps) {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">{room?.description || "Sin descripción"}</p>
+                <p className="line-clamp-2 text-xs text-muted-foreground">{room?.description || "Sin descripción"}</p>
               </>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="mt-3 flex items-center justify-center gap-2 overflow-x-auto lg:mt-0 lg:justify-start lg:gap-3">
           {/* ID + copy: visible both mobile and desktop; text hidden on small */}
-          <div className="flex items-center gap-2 rounded-lg border px-2 py-1">
-            <span className="font-mono text-xs tracking-widest mr-2">{room?.id ?? "--- --- ---"}</span>
+          <div className="flex shrink-0 items-center gap-2 rounded-lg border px-2 py-1">
+            <span className="mr-2 font-mono text-xs tracking-widest">{room?.id ?? "--- --- ---"}</span>
             <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => void handleCopyRoomId()} disabled={isLoading || !room?.id}>
               <Copy className="size-3.5" />
             </Button>
@@ -1373,11 +1494,11 @@ export function RoomView({ authUser }: RoomViewProps) {
 
           {/* Edit + Delete: icon-only on mobile, full on desktop */}
           {isCreator && !isEditingRoomName && (
-            <div className="flex items-center gap-2 border-l pl-3 ml-3">
+            <div className="ml-1 flex shrink-0 items-center gap-2 border-l pl-3 lg:ml-3">
               <Button
                 variant="ghost"
                 size="icon"
-                className="flex items-center justify-center sm:hidden h-8 w-8"
+                className="flex h-8 w-8 items-center justify-center sm:hidden"
                 onClick={() => {
                   startEditing()
                 }}
@@ -1430,7 +1551,7 @@ export function RoomView({ authUser }: RoomViewProps) {
           <Button
             variant={isMobileChatOpen ? "default" : "ghost"}
             size="icon"
-            className="lg:hidden h-8 w-8 ml-2"
+            className="ml-1 h-8 w-8 shrink-0 lg:hidden"
             onClick={() => setIsMobileChatOpen(true)}
             aria-label="Abrir chat"
             title="Chat"
@@ -1441,10 +1562,10 @@ export function RoomView({ authUser }: RoomViewProps) {
       </header>
 
       {/* MAIN LAYOUT */}
-      <main className="relative flex flex-1 overflow-hidden p-2 sm:p-4 gap-4 lg:flex-row flex-col">
+      <main className="relative flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-2 sm:p-4 lg:flex-row">
         {/* LEFT: Stage + Participants */}
-        <section className="flex flex-1 flex-col gap-4 overflow-hidden">
-          <div className="relative flex flex-1 flex-col rounded-2xl border bg-card shadow-lg overflow-hidden p-3">
+        <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-card p-3 pb-20 shadow-lg lg:pb-24">
             {mediaError ? (
               <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 {mediaError}
@@ -1456,13 +1577,20 @@ export function RoomView({ authUser }: RoomViewProps) {
               </div>
             ) : null}
 
+            {!hasCameraAvailable ? (
+              <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+                No hay cámara disponible en este dispositivo. Puedes continuar con audio sin problema.
+              </div>
+            ) : null}
+
             {pinnedTile ? (
-              <div className="flex h-full flex-1 gap-3">
+              <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
                 <div className="min-h-0 flex-1">
                   <VideoTile
                     key={pinnedTile.id}
                     stream={pinnedTile.stream}
                     name={pinnedTile.name}
+                    avatarUrl={pinnedTile.avatarUrl}
                     muted
                     mediaState={pinnedTile.mediaState}
                     isLocal={pinnedTile.isLocal}
@@ -1471,12 +1599,13 @@ export function RoomView({ authUser }: RoomViewProps) {
                   />
                 </div>
 
-                <div className="hidden w-64 shrink-0 flex-col gap-3 lg:flex">
+                <div className="hidden min-h-0 w-64 shrink-0 flex-col gap-3 overflow-hidden lg:flex">
                   {sideTiles.map((tile) => (
                     <VideoTile
                       key={tile.id}
                       stream={tile.stream}
                       name={tile.name}
+                      avatarUrl={tile.avatarUrl}
                       muted
                       mediaState={tile.mediaState}
                       isLocal={tile.isLocal}
@@ -1493,12 +1622,13 @@ export function RoomView({ authUser }: RoomViewProps) {
                 </div>
               </div>
             ) : (
-              <div className={`grid h-full flex-1 gap-3 ${gridClassName}`}>
+              <div className={`grid min-h-0 flex-1 gap-3 overflow-hidden ${gridClassName}`}>
                 {orderedTiles.map((tile) => (
                   <VideoTile
                     key={tile.id}
                     stream={tile.stream}
                     name={tile.name}
+                    avatarUrl={tile.avatarUrl}
                     muted
                     mediaState={tile.mediaState}
                     isLocal={tile.isLocal}
@@ -1538,6 +1668,7 @@ export function RoomView({ authUser }: RoomViewProps) {
                 className="gap-2 px-3"
                 title={localMediaState.screenSharing ? "Detener pantalla" : "Compartir pantalla"}
                 onClick={() => void handleToggleScreenShare()}
+                disabled={!canShareScreen}
               >
                 <MonitorUp className="size-5" />
               </Button>
@@ -1562,8 +1693,8 @@ export function RoomView({ authUser }: RoomViewProps) {
           </div>
 
           {/* Participants strip */}
-          <div className="flex h-24 shrink-0 items-center gap-3 overflow-x-auto rounded-xl border bg-background p-3">
-            <div className="flex h-full flex-col justify-center px-2 border-r mr-2">
+          <div className="flex h-20 shrink-0 items-center gap-3 overflow-x-auto rounded-xl border bg-background p-3 lg:h-[76px] lg:py-2">
+            <div className="mr-2 flex h-full flex-col justify-center border-r px-2">
               <Users className="size-5 text-muted-foreground mb-1" />
               <span className="text-xs font-medium text-muted-foreground">{participants.length}</span>
             </div>
@@ -1572,11 +1703,19 @@ export function RoomView({ authUser }: RoomViewProps) {
               <p className="text-sm text-muted-foreground italic">No hay participantes aún...</p>
             ) : (
               participants.map((p) => (
-                <div key={p.id} className="relative flex h-full min-w-[120px] max-w-[160px] flex-col items-center justify-center rounded-lg bg-card border px-3 py-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground">
-                    <UserIcon className="size-4" />
-                  </div>
-                  <span className="mt-2 truncate w-full text-center text-xs font-medium">{p.name}</span>
+                <div key={p.id} className="relative flex h-full min-w-[120px] max-w-[160px] flex-col items-center justify-center rounded-lg border bg-card px-3 py-1.5 lg:justify-start lg:pt-1.5">
+                  {p.avatarUrl ? (
+                    <img
+                      src={p.avatarUrl}
+                      alt={`Avatar de ${p.name}`}
+                      className="h-7 w-7 rounded-full object-cover lg:h-6 lg:w-6"
+                    />
+                  ) : (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-foreground lg:h-6 lg:w-6">
+                      <UserIcon className="size-4 lg:size-3.5" />
+                    </div>
+                  )}
+                  <span className="mt-1 w-full truncate text-center text-[11px] font-medium leading-tight lg:text-[10px]">{p.name}</span>
                   {p.role === "admin" && <ShieldCheck className="absolute top-2 right-2 size-3 text-primary" />}
                 </div>
               ))
@@ -1588,7 +1727,7 @@ export function RoomView({ authUser }: RoomViewProps) {
         <aside
           className={`${
             isMobileChatOpen ? "absolute inset-0 z-50 flex" : "hidden"
-          } w-full flex-col overflow-hidden border bg-background lg:static lg:flex lg:w-80 lg:rounded-2xl lg:border shadow-lg`}
+          } min-h-0 w-full flex-col overflow-hidden border bg-background shadow-lg lg:static lg:flex lg:h-full lg:w-80 lg:rounded-2xl lg:border`}
           aria-hidden={!isMobileChatOpen && typeof window !== "undefined" && window.innerWidth < 1024}
         >
           <div className="flex h-14 items-center justify-between border-b px-4">
@@ -1605,7 +1744,7 @@ export function RoomView({ authUser }: RoomViewProps) {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             {messages.map((msg) => {
               if (msg.isSystem) {
                 return (
